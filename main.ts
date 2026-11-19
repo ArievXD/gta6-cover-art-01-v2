@@ -6,7 +6,7 @@
 // Outside the grader, MAKEFUN_OUTPUT_DIR stands in for /output; without it, /output is used.
 
 import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-app.ts';
 
@@ -26,10 +26,20 @@ const DOSSIER_CAPS = {
 };
 
 mkdirSync(outputDir, { recursive: true });
-cpSync(join(repoRoot, 'app'), join(outputDir, 'app'), { recursive: true });
+
+// Dotfiles and dot-directories must never reach /output: the gate refuses an
+// output name that does not start with a letter, digit or _. Browser tasks
+// create .gitkeep files to make empty directories on GitHub (screenshots/ and
+// app/samples/ hold one each), and a plain recursive copy carried them along.
+const notDotPath = (src: string) =>
+  !relative(repoRoot, src)
+    .split('/')
+    .some((part) => part.startsWith('.'));
+
+cpSync(join(repoRoot, 'app'), join(outputDir, 'app'), { recursive: true, filter: notDotPath });
 mkdirSync(join(outputDir, 'screenshots'), { recursive: true });
 if (existsSync(join(repoRoot, 'screenshots'))) {
-  cpSync(join(repoRoot, 'screenshots'), join(outputDir, 'screenshots'), { recursive: true });
+  cpSync(join(repoRoot, 'screenshots'), join(outputDir, 'screenshots'), { recursive: true, filter: notDotPath });
 }
 
 writeFileSync(join(outputDir, 'dossier.json'), buildDossier(outputDir, DOSSIER_CAPS));
